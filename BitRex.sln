@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32929.385
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitRex.Api", "BitRex.Api\BitRex.Api.csproj", "{B5600051-6CC1-4652-B501-8B03F4258188}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitRex.Application", "BitRex.Application\BitRex.Application.csproj", "{0B6D4F5D-8637-49AB-B957-AB9F88AC09FC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitRex.Core", "BitRex.Core\BitRex.Core.csproj", "{79FA9B15-3BF9-4203-8209-BABD09797CA4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitRex.Infrastructure", "BitRex.Infrastructure\BitRex.Infrastructure.csproj", "{D5B61BB9-5E61-464E-AEB7-F6691DF3F1F4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B5600051-6CC1-4652-B501-8B03F4258188}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B5600051-6CC1-4652-B501-8B03F4258188}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B5600051-6CC1-4652-B501-8B03F4258188}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B5600051-6CC1-4652-B501-8B03F4258188}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B6D4F5D-8637-49AB-B957-AB9F88AC09FC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B6D4F5D-8637-49AB-B957-AB9F88AC09FC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B6D4F5D-8637-49AB-B957-AB9F88AC09FC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B6D4F5D-8637-49AB-B957-AB9F88AC09FC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{79FA9B15-3BF9-4203-8209-BABD09797CA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{79FA9B15-3BF9-4203-8209-BABD09797CA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{79FA9B15-3BF9-4203-8209-BABD09797CA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{79FA9B15-3BF9-4203-8209-BABD09797CA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5B61BB9-5E61-464E-AEB7-F6691DF3F1F4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5B61BB9-5E61-464E-AEB7-F6691DF3F1F4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5B61BB9-5E61-464E-AEB7-F6691DF3F1F4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5B61BB9-5E61-464E-AEB7-F6691DF3F1F4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {18C7F8C6-1CAC-4445-A045-8E061DC95D9C}
+	EndGlobalSection
+EndGlobal
