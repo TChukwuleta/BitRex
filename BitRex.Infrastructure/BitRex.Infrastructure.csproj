@@ -8,7 +8,10 @@
 
   <ItemGroup>
     <PackageReference Include="CloudinaryDotNet" Version="1.20.0" />
+    <PackageReference Include="Google.Apis.Core" Version="1.60.0" />
     <PackageReference Include="Google.Protobuf" Version="3.22.1" />
+    <PackageReference Include="GraphQL.Client" Version="6.0.0" />
+    <PackageReference Include="GraphQL.Client.Serializer.Newtonsoft" Version="6.0.0" />
     <PackageReference Include="Grpc.Core" Version="2.46.6" />
     <PackageReference Include="Grpc.Tools" Version="2.53.0">
       <PrivateAssets>all</PrivateAssets>
@@ -27,7 +30,10 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="7.0.0" />
     <PackageReference Include="NBitcoin" Version="7.0.25" />
+    <PackageReference Include="NBXplorer.Client" Version="4.2.3" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Paystack.Net" Version="1.1.0" />
+    <PackageReference Include="QBitNinja.Client" Version="1.0.4" />
   </ItemGroup>
 
 	<ItemGroup>

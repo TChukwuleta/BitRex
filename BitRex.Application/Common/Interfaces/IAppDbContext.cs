@@ -5,7 +5,7 @@ namespace BitRex.Application.Common.Interfaces
 {
     public interface IAppDbContext
     {
-        DbSet<Transaction> Transactions { get; set; }
+        DbSet<BitRex.Core.Entities.Transaction> Transactions { get; set; }
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);
     }
 }

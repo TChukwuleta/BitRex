@@ -109,5 +109,48 @@ namespace BitRex.Infrastructure.Helper
                 throw ex;
             }
         }
+
+
+        public AddInvoiceResponse CreateSwapInvoice(string hash, long satoshi, string memo)
+        {
+            try
+            {
+                var client = GetAdminClient();
+                var invoice = new Invoice();
+                invoice.Memo = memo;
+                invoice.Expiry = 3600;
+                invoice.PaymentRequest = hash;
+                invoice.Value = satoshi; // Value in satoshis
+                var metadata = new Metadata() { new Metadata.Entry("macaroon", GetAdminMacaroon()) };
+                var invoiceResponse = client.AddInvoice(invoice, metadata);
+                return invoiceResponse;
+            }
+            catch (Exception ex)
+            {
+
+                throw ex;
+            }
+        }
+
+        public AddInvoiceResponse TestSwapInvoice(string hash, long satoshi, string memo)
+        {
+            try
+            {
+                var client = GetAdminClient();
+                var invoice = new Invoice();
+                invoice.Memo = memo;
+                invoice.Expiry = 3600;
+                invoice.PaymentRequest = hash;
+                invoice.Value = satoshi; // Value in satoshis
+                var metadata = new Metadata() { new Metadata.Entry("macaroon", GetAdminMacaroon()) };
+                var invoiceResponse = client.AddInvoice(invoice, metadata);
+                return invoiceResponse;
+            }
+            catch (Exception ex)
+            {
+
+                throw ex;
+            }
+        }
     }
 }

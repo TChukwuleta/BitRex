@@ -1,5 +1,6 @@
 ﻿using BitRex.Application.Common.Interfaces;
 using BitRex.Application.Common.Model.Request;
+using BitRex.Core.Model.Response;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using PayStack.Net;
@@ -18,29 +19,32 @@ namespace BitRex.Infrastructure.Services
             payStack = new PayStackApi(token);
         }
 
-        public async Task<string> MakePayment(PaystackPaymentRequest request)
+        public async Task<PaystackInitializationResponse> MakePayment(PaystackPaymentRequest request)
         {
+            var result = new PaystackInitializationResponse();
             try
             {
                 TransactionInitializeRequest paymentRequest = new()
                 {
-                    AmountInKobo = request.Amount * 100,
+                    AmountInKobo = (int)(request.Amount * 100),
                     Email = request.Email,
                     Reference = request.Reference,
                     Currency = "NGN",
                     CallbackUrl = "http://localhost:7293/payment/verify"
                 };
-
                 TransactionInitializeResponse response = payStack.Transactions.Initialize(paymentRequest);
                 if (response.Status)
                 {
-                    return JsonConvert.SerializeObject(response.Data);
+                    result.AuthorizationCode = response.Data.AccessCode;
+                    result.Url = response.Data.AuthorizationUrl;
+                    result.Reference = response.Data.Reference;
+                    return result;
                 }
-                return response.Message;
+                result.ErrorMessage = response.Message;
+                return result;
             }
             catch (Exception ex)
             {
-
                 throw ex;
             }
         }

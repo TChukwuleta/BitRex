@@ -12,6 +12,6 @@
         public bool Private { get; set; }
         public long AmountInSat { get; set; }
         public int PostId { get; set; }
-        public string Email { get; set; }
+        public string Reference { get; set; }
     }
 }

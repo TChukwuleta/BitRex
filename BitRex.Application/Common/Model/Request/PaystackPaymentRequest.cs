@@ -11,6 +11,6 @@ namespace BitRex.Application.Common.Model.Request
         public string Name { get; set; }
         public string Reference { get; set; }
         public string Email { get; set; }
-        public int Amount { get; set; }
+        public decimal Amount { get; set; }
     }
 }

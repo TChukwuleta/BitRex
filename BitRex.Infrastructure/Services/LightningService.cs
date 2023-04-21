@@ -27,7 +27,72 @@ namespace BitRex.Infrastructure.Services
             }
             catch (Exception ex)
             {
+                throw ex;
+            }
+        }
 
+        public async Task<string> CreateSwapInvoice(string hash, long satoshis, string message)
+        {
+            string paymentRequest = default;
+            var helper = new LightningHelper(_config);
+            try
+            {
+                var adminInvoice = helper.CreateSwapInvoice(hash, satoshis, message);
+                paymentRequest = adminInvoice.PaymentRequest;
+                return paymentRequest;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public async Task<bool> ValidateLightningAddress(string paymentRequest)
+        {
+            var helper = new LightningHelper(_config);
+            try
+            {
+                var userClient = helper.GetUserClient();
+                var request = new PayReqString
+                {
+                    PayReq = paymentRequest
+                };
+                var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                if (response == null)
+                {
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public async Task<(bool success, string message)> ConfirmLightningValue(string paymentRequest, decimal amount)
+        {
+            var helper = new LightningHelper(_config);
+            try
+            {
+                var userClient = helper.GetUserClient();
+                var request = new PayReqString
+                {
+                    PayReq = paymentRequest
+                };
+                var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                if (response.NumSatoshis > Math.Ceiling(amount))
+                {
+                    return (false, "Invoice amount is greater than the fiat equivalent of sats to be paid.");
+                }
+                if ((response.NumSatoshis + 1) < Math.Ceiling(amount))
+                {
+                    return (false, "Invoice amount is less than the fiat equivalent of sats to be paid.");
+                }
+                return (true, "");
+            }
+            catch (Exception ex)
+            {
                 throw ex;
             }
         }
@@ -95,7 +160,7 @@ namespace BitRex.Infrastructure.Services
                             settledInvoiceResponse.SettledIndex = (long)invoice.SettleIndex;
                             settledInvoiceResponse.Private = invoice.Private;
                             settledInvoiceResponse.AmountInSat = invoice.AmtPaidSat;
-                            settledInvoiceResponse.Email = invoice.Memo;
+                            settledInvoiceResponse.Reference = invoice.Memo;
                             return settledInvoiceResponse;
                         }
                     }
@@ -104,7 +169,6 @@ namespace BitRex.Infrastructure.Services
             }
             catch (Exception ex)
             {
-
                 throw ex;
             }
         }
@@ -129,13 +193,45 @@ namespace BitRex.Infrastructure.Services
                 sendRequest.PaymentRequest = paymentRequest;
                 var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
                 result = response.PaymentError;
+                var yo = response.PaymentPreimage.ToByteArray();
                 return result;
-
             }
             catch (Exception ex)
             {
+                throw ex;
+            }
+        }
 
-                throw;
+        public async Task<byte[]> TestSendLightning(string paymentRequest)
+        {
+            string result = default;
+            var helper = new LightningHelper(_config);
+            var sendRequest = new SendRequest();
+            var paymentReq = new PayReqString();
+            var walletBalance = await GetWalletBalance();
+            try
+            {
+                var userClient = helper.GetUserClient();
+                paymentReq.PayReq = paymentRequest;
+                var decodedPaymentReq = userClient.DecodePayReq(paymentReq, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                if (walletBalance < decodedPaymentReq.NumSatoshis)
+                {
+                    throw new ArgumentException("Unable to complete lightning payment. Insufficient funds");
+                }
+                sendRequest.Amt = decodedPaymentReq.NumSatoshis;
+                sendRequest.PaymentRequest = paymentRequest;
+                var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                result = response.PaymentError;
+                if (!string.IsNullOrEmpty(result))
+                {
+                    throw new ArgumentException($"An error occured. {result}");
+                }
+                var yo = response.PaymentPreimage.ToByteArray();
+                return yo;
+            }
+            catch (Exception ex)
+            {
+                throw ex;
             }
         }
     }

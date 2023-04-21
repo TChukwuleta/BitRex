@@ -1,19 +1,20 @@
-﻿using BitRex.Core.Enums;
+﻿using BitRex.Application.Common.Interfaces;
+using BitRex.Application.Transaction;
+using BitRex.Core.Enums;
 using BitRex.Core.Model;
+using BitRex.Core.Model.Request;
 using MediatR;
 using Microsoft.Extensions.Configuration;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using NBitcoin;
+using System.Net;
 
 namespace BitRex.Application.Swap.Commands
 {
-    internal class CreateExchangeCommand : IRequest<Response<object>>
+    public class CreateExchangeCommand : IRequest<Response<object>>
     {
         public decimal Amount { get; set; }
         public string Destination { get; set; }
+        public string Narration { get; set; }
         public ExchangeType FromExchange { get; set; }
         public ExchangeType ToExchange { get; set; }
     }
@@ -21,14 +22,164 @@ namespace BitRex.Application.Swap.Commands
     public class CreateExchangeCommandHandler : IRequestHandler<CreateExchangeCommand, Response<object>>
     {
         private readonly IConfiguration _config;
-        public CreateExchangeCommandHandler(IConfiguration config)
+        private readonly IBitcoinCoreClient _bitcoinCoreClient;
+        private readonly ILightningService _lightningService;
+        private readonly IAppDbContext _context;
+        private readonly IGraphqlService _graphqlService;
+        public CreateExchangeCommandHandler(IConfiguration config, IBitcoinCoreClient bitcoinCoreClient, 
+            ILightningService lightningService, IAppDbContext context, IGraphqlService graphqlService)
         {
             _config = config;
+            _lightningService = lightningService;
+            _bitcoinCoreClient = bitcoinCoreClient;
+            _context = context;
+            _graphqlService = graphqlService;
         }
 
-        Task<Response<object>> IRequestHandler<CreateExchangeCommand, Response<object>>.Handle(CreateExchangeCommand request, CancellationToken cancellationToken)
+        public async Task<Response<object>> Handle(CreateExchangeCommand request, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var response = new Response<object> { Succeeded = false };
+            var reference = $"BitRex_{DateTime.Now.Ticks}";
+            decimal minerFee = default;
+            decimal serviceCharge = default;
+            decimal serviceChargeValue = default;
+            decimal total = default;
+            decimal.TryParse(_config["DustValue"], out decimal dustValue);
+            decimal.TryParse(_config["DollarToNairaRate"], out decimal dollarNairaRate);
+            decimal.TryParse(_config["MinimumAmountBtc"], out decimal minAmount);
+            decimal.TryParse(_config["MaximumAmountBtc"], out decimal maxAmount);
+            try
+            {
+                var transactionRecord = new CreateTransactionDto
+                {
+                    Narration = request.Narration,
+                    SourceAmount = request.Amount,
+                    TransactionReference = reference,
+                    Hash = new Key().PubKey.ToHex()
+                };
+
+                var dollarEquiv = request.Amount / dollarNairaRate;
+                var price = await _graphqlService.GetPrices(PriceGraphRangeType.ONE_DAY);
+                var monetaryValue = (dollarEquiv / price);
+                if (monetaryValue <= dustValue)
+                {
+                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    response.Message = "Monetary value cannot be less than the dust value";
+                    return response;
+                }
+                if (monetaryValue < minAmount)
+                {
+                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    response.Message = "Value is less than minimum amount that the system can process";
+                    return response;
+                }
+                if (monetaryValue > maxAmount)
+                {
+                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    response.Message = "Value is more than maximum amount that the system can process";
+                    return response;
+                }
+                //monetaryValue = (monetaryValue * 100000000);
+
+                switch (request.ToExchange)
+                {
+                    case ExchangeType.Bitcoin:
+                        switch (request.FromExchange)
+                        {
+                            case ExchangeType.Bitcoin:
+                                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                response.Message = "Cannot convert to same currency type";
+                                return response;
+                                break;
+                            case ExchangeType.LnBtc:
+                                var address = await _bitcoinCoreClient.ValidateBitcoinAddress(request.Destination);
+                                if (!address)
+                                {
+                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                    response.Message = "Invalid bitcoin address";
+                                    return response;
+                                }
+                                decimal.TryParse(_config["ServiceCharge:LnBtcToLnBtc"], out serviceCharge);
+                                decimal.TryParse(_config["MinerFee:LnBtcToBtc"], out minerFee);
+                                serviceChargeValue = monetaryValue * serviceCharge;
+                                total = monetaryValue - (serviceChargeValue + minerFee);
+                                var generateInvloice = await _lightningService.CreateSwapInvoice(transactionRecord.Hash, (long)(total * 100000000), reference);
+                                var invoiceResult = new
+                                {
+                                    Invloce = generateInvloice
+                                };
+                                transactionRecord.DestinationAddress = request.Destination;
+                                transactionRecord.SourceAddress = generateInvloice;
+                                transactionRecord.DestinationPaymentModeType = PaymentModeType.Bitcoin;
+                                transactionRecord.SourcePaymentModeType = PaymentModeType.Lightning;
+                                transactionRecord.DestinationAmount = (total * 100000000);
+                                transactionRecord.TransactionStatus = TransactionStatus.Initiated;
+                                var transaction = await new TransactionHelper(_context).CreateTransaction(transactionRecord);
+                                response.Succeeded = true;
+                                response.Data = invoiceResult;
+                                response.Message = $"A lightning invoice has been generated successfully";
+                                response.StatusCode = (int)HttpStatusCode.OK;
+                                return response;
+                            default:
+                                break;
+                        }
+                        break;
+                    case ExchangeType.LnBtc:
+                        switch (request.FromExchange)
+                        {
+                            case ExchangeType.Bitcoin:
+                                var validateInvoice = await _lightningService.ValidateLightningAddress(request.Destination);
+                                if (!validateInvoice)
+                                {
+                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                    response.Message = "Invalid lightning invoice";
+                                    return response;
+                                }
+                                decimal.TryParse(_config["ServiceCharge:BtcToBtc"], out serviceCharge);
+                                decimal.TryParse(_config["MinerFee:BtcToLnBtc"], out minerFee);
+                                serviceChargeValue = monetaryValue * serviceCharge;
+                                total = monetaryValue - (serviceChargeValue + minerFee);
+                                var generateAddress = await _bitcoinCoreClient.GenerateNewAddress();
+                                var addressResult = new 
+                                {
+                                    Address = generateAddress
+                                };
+                                transactionRecord.SourceAddress = generateAddress;
+                                transactionRecord.DestinationAddress = request.Destination;
+                                transactionRecord.DestinationPaymentModeType = PaymentModeType.Lightning;
+                                transactionRecord.SourcePaymentModeType = PaymentModeType.Bitcoin;
+                                transactionRecord.DestinationAmount = total;
+                                transactionRecord.TransactionStatus = TransactionStatus.Initiated;
+                                var transaction = await new TransactionHelper(_context).CreateTransaction(transactionRecord);
+                                response.Succeeded = true;
+                                response.Data = addressResult;
+                                response.Message = $"A lightning invoice has been generated successfully";
+                                response.StatusCode = (int)HttpStatusCode.OK;
+                                return response;
+                                break;
+                            case ExchangeType.LnBtc:
+                                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                response.Message = "Cannot convert to same currency type";
+                                return response;
+                                break;
+                            default:
+                                break;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+                response.Succeeded = true;
+                response.Message = "Exchange initiation was successful";
+                response.StatusCode = (int)HttpStatusCode.OK;
+                return response;
+            }
+            catch (Exception ex)
+            {
+                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                response.Message = $"An error occured. {ex?.Message ?? ex?.InnerException.Message}";
+                return response;
+            }
         }
     }
 }

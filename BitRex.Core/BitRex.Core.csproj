@@ -7,10 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Model\Response\" />
+    <Folder Include="Dto\" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="GraphQL" Version="7.4.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 

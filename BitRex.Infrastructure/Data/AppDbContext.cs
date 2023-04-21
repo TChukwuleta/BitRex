@@ -19,11 +19,9 @@ namespace BitRex.Infrastructure.Data
                 switch (entry.State)
                 {
                     case EntityState.Added:
-                        // entry.Entity.CreatedBy = _currentUserService.UserId;
                         entry.Entity.CreatedDate = DateTime.Now;
                         break;
                     case EntityState.Modified:
-                        // entry.Entity.LastModifiedBy = _currentUserService.UserId;
                         entry.Entity.LastModifiedDate = DateTime.Now;
                         break;
                 }
