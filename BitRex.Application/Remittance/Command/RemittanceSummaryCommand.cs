@@ -51,7 +51,8 @@ namespace BitRex.Application.Remittance.Command
                     default:
                         break;
                 }
-                if (monetaryValue <= dustValue)
+                var val = (total * 100000000);
+                if (val <= dustValue)
                 {
                     summary = new
                     {
@@ -71,7 +72,7 @@ namespace BitRex.Application.Remittance.Command
                         //ServiceChargeInDollars = serviceCharge,
                         ProposedAmountInNaira = request.Amount,
                         ProposedAmountInDollar = (request.Amount / dollarNairaRate),
-                        ReturnValue = total,
+                        ReturnValueInSats = (total * 100000000),
                         CurrentBitcoinPriceInDollar = $"$ {price}",
                         CurrentBitcoinPriceInNaira = $"N {price * dollarNairaRate}",
                     };

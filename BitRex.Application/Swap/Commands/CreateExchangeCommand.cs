@@ -13,6 +13,7 @@ namespace BitRex.Application.Swap.Commands
     public class CreateExchangeCommand : IRequest<Response<object>>
     {
         public decimal Amount { get; set; }
+        public string Source { get; set; }
         public string Destination { get; set; }
         public string Narration { get; set; }
         public ExchangeType FromExchange { get; set; }
@@ -61,12 +62,7 @@ namespace BitRex.Application.Swap.Commands
                 var dollarEquiv = request.Amount / dollarNairaRate;
                 var price = await _graphqlService.GetPrices(PriceGraphRangeType.ONE_DAY);
                 var monetaryValue = (dollarEquiv / price);
-                if (monetaryValue <= dustValue)
-                {
-                    response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    response.Message = "Monetary value cannot be less than the dust value";
-                    return response;
-                }
+                
                 if (monetaryValue < minAmount)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -79,6 +75,8 @@ namespace BitRex.Application.Swap.Commands
                     response.Message = "Value is more than maximum amount that the system can process";
                     return response;
                 }
+
+
                 //monetaryValue = (monetaryValue * 100000000);
 
                 switch (request.ToExchange)
@@ -101,8 +99,14 @@ namespace BitRex.Application.Swap.Commands
                                 }
                                 decimal.TryParse(_config["ServiceCharge:LnBtcToLnBtc"], out serviceCharge);
                                 decimal.TryParse(_config["MinerFee:LnBtcToBtc"], out minerFee);
-                                serviceChargeValue = monetaryValue * serviceCharge;
+                                serviceChargeValue = monetaryValue * (serviceCharge / 100);
                                 total = monetaryValue - (serviceChargeValue + minerFee);
+                                if ((total * 100000000) <= dustValue)
+                                {
+                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                    response.Message = "Monetary value cannot be less than the dust value";
+                                    return response;
+                                }
                                 var generateInvloice = await _lightningService.CreateSwapInvoice(transactionRecord.Hash, (long)(total * 100000000), reference);
                                 var invoiceResult = new
                                 {
@@ -129,7 +133,7 @@ namespace BitRex.Application.Swap.Commands
                         {
                             case ExchangeType.Bitcoin:
                                 var validateInvoice = await _lightningService.ValidateLightningAddress(request.Destination);
-                                if (!validateInvoice)
+                                if (!validateInvoice.success)
                                 {
                                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                                     response.Message = "Invalid lightning invoice";
@@ -137,14 +141,33 @@ namespace BitRex.Application.Swap.Commands
                                 }
                                 decimal.TryParse(_config["ServiceCharge:BtcToBtc"], out serviceCharge);
                                 decimal.TryParse(_config["MinerFee:BtcToLnBtc"], out minerFee);
-                                serviceChargeValue = monetaryValue * serviceCharge;
+                                serviceChargeValue = monetaryValue * (serviceCharge / 100);
                                 total = monetaryValue - (serviceChargeValue + minerFee);
-                                var generateAddress = await _bitcoinCoreClient.GenerateNewAddress();
+                                if ((total * 100000000) <= dustValue)
+                                {
+                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                    response.Message = "Monetary value cannot be less than the dust value";
+                                    return response;
+                                }
+
+                                if ((total * 100000000) < validateInvoice.amount)
+                                {
+                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                    response.Message = $"Invoice value is greater than return value by {validateInvoice.amount - (total * 100000000)}";
+                                    return response;
+                                }
+                                if ((total * 100000000) > validateInvoice.amount)
+                                {
+                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                    response.Message = $"Invoice value is less than return value by {(total * 100000000) - validateInvoice.amount}";
+                                    return response;
+                                }
+                                var generateAddress = await _bitcoinCoreClient.SwapBitcoinAddress(request.Source, validateInvoice.amount, request.Destination);
                                 var addressResult = new 
                                 {
                                     Address = generateAddress
                                 };
-                                transactionRecord.SourceAddress = generateAddress;
+                                transactionRecord.SourceAddress = generateAddress.response;
                                 transactionRecord.DestinationAddress = request.Destination;
                                 transactionRecord.DestinationPaymentModeType = PaymentModeType.Lightning;
                                 transactionRecord.SourcePaymentModeType = PaymentModeType.Bitcoin;

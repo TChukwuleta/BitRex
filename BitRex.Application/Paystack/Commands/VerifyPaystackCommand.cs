@@ -86,10 +86,10 @@ namespace BitRex.Application.Paystack.Commands
                             return response;
                         }
                         var lightningPayment = await _lightningService.SendLightning(transaction.DestinationAddress);
-                        if (!string.IsNullOrEmpty(lightningPayment))
+                        if (!lightningPayment.success)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
-                            response.Message = $"Error sending payment. {lightningPayment}";
+                            response.Message = $"Error sending payment. {lightningPayment.error}";
                             return response;
                         }
                         break;

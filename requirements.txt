@@ -1,0 +1,50 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "MinimumAmountBtc": 0.000005,
+  "MaximumAmountBtc": 0.1,
+  "ServiceChargeBtc": 0.3,
+  "ServiceChargeLnBtc": 0.15,
+  "GaloyUrl": "https://api.staging.galoy.io/graphql",
+  "DollarToNairaRate": 760,
+  "DustValue": 546,
+  "AllowedHosts": "*",
+  "SupportEmail": "support_email",
+  "ConnectionStrings": {
+    "DefaultConnection": "server=server_name; database=db_name; trusted_connection=true"
+  },
+
+  "ServiceCharge": {
+    "BtcToBtc": 0.2,
+    "LnBtcToLnBtc": 0.2,
+    "FiatToLnBtc": 0.08,
+    "FiatToBtc": 0.08
+  },
+
+  "MinerFee": {
+    "BtcToLnBtc": 0.0000002380,
+    "LnBtcToBtc": 0.0000004074
+  },
+  "Bitcoin": {
+    "URL": "", // Bitcoin url
+    "username": "", //your own node's username
+    "password": "", //your own node's password
+    "wallet": "", // //your wallet name
+  },
+
+  "Lightning": {
+    "URL": "", // LND URL
+    "UserMacaroonPath": "", // Macaroon file location
+    "UserSslCertPath": "", // SSL cert file location
+    "UserRpcHost": "", // GRPC host url
+  },
+
+
+  "Paystack": {
+    "SecretKey": "" // Paystack secret key gotten from Paystack dashboard settings
+  }
+}

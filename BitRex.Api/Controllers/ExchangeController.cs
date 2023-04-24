@@ -17,6 +17,19 @@ namespace BitRex.Api.Controllers
             _mediator = mediator;
         }
 
+        [HttpPost("exchangesummary")]
+        public async Task<ActionResult<Response<object>>> ExchangeSummary(ExchangeSummaryCommand command)
+        {
+            try
+            {
+                return await _mediator.Send(command);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
+            }
+        }
+
         [HttpPost("createexchange")]
         public async Task<ActionResult<Response<object>>> RemittanceSummary(CreateExchangeCommand command)
         {
@@ -31,3 +44,6 @@ namespace BitRex.Api.Controllers
         }
     }
 }
+
+
+

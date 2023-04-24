@@ -1,6 +1,7 @@
 ﻿using BitRex.Application.Common.Interfaces;
 using BitRex.Application.Common.Model.Response;
 using BitRex.Infrastructure.Helper;
+using Google.Protobuf;
 using Grpc.Core;
 using Lnrpc;
 using Microsoft.Extensions.Configuration;
@@ -47,7 +48,7 @@ namespace BitRex.Infrastructure.Services
             }
         }
 
-        public async Task<bool> ValidateLightningAddress(string paymentRequest)
+        public async Task<(bool success, string hash, long expiry, long amount)> ValidateLightningAddress(string paymentRequest)
         {
             var helper = new LightningHelper(_config);
             try
@@ -60,9 +61,11 @@ namespace BitRex.Infrastructure.Services
                 var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
                 if (response == null)
                 {
-                    return false;
+                    return (false, string.Empty, 0, 0);
                 }
-                return true;
+                var paymentAddr = response.PaymentAddr;
+                var hash = response.PaymentHash;
+                return (true, hash, response.Expiry, response.NumSatoshis);
             }
             catch (Exception ex)
             {
@@ -173,7 +176,7 @@ namespace BitRex.Infrastructure.Services
             }
         }
 
-        public async Task<string> SendLightning(string paymentRequest)
+        public async Task<(bool success, string error, string hash, byte[] preimage)> SendLightning(string paymentRequest)
         {
             string result = default;
             var helper = new LightningHelper(_config);
@@ -193,7 +196,34 @@ namespace BitRex.Infrastructure.Services
                 sendRequest.PaymentRequest = paymentRequest;
                 var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
                 result = response.PaymentError;
+                var hash = response.PaymentHash.ToStringUtf8();
                 var yo = response.PaymentPreimage.ToByteArray();
+                if (!string.IsNullOrEmpty(response.PaymentError))
+                {
+                    return (false, response.PaymentError, string.Empty, null);
+                }
+                return (true, string.Empty, hash, yo);
+            }
+            catch (Exception ex)
+            {
+                throw ex;
+            }
+        }
+
+        public async Task<string> SomeTestSendLightning(string paymentRequest, string hash)
+        {
+            string result = default;
+            var helper = new LightningHelper(_config);
+            var sendRequest = new SendRequest();
+            sendRequest.PaymentHash = ByteString.CopyFromUtf8(hash);
+            sendRequest.PaymentRequest = paymentRequest;
+            sendRequest.CltvLimit = 40;
+            try
+            {
+                var userClient = helper.GetUserClient();
+                sendRequest.PaymentRequest = paymentRequest;
+                var response = await userClient.SendPaymentSyncAsync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                result = response.PaymentError;
                 return result;
             }
             catch (Exception ex)

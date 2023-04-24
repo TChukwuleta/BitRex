@@ -100,7 +100,7 @@ namespace BitRex.Application.Remittance.Command
                         serviceCharge = lightningFeeCharges * monetaryValue;
                         total = monetaryValue - serviceCharge;
                         var validateLightningRequest = await _lightningService.ValidateLightningAddress(request.Destination);
-                        if (!validateLightningRequest)
+                        if (!validateLightningRequest.success)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = "Invalid bitcoin address";
