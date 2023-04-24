@@ -42,8 +42,19 @@ namespace BitRex.Api.Controllers
                 return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
             }
         }
+
+        [HttpPost("confirmbitcoinpaymentandperformswap")]
+        public async Task<ActionResult<Response<string>>> ConfirmBitcoinPayment(ConfirmBitcoinPaymentCommand command)
+        {
+            try
+            {
+                return await _mediator.Send(command);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
+            }
+        }
     }
 }
-
-
 

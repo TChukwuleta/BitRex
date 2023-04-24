@@ -8,7 +8,6 @@ namespace BitRex.Application.Test
     public class TestFlowCommand : IRequest<Response<string>>
     {
         public string Address { get; set; }
-        public string LightningAddress { get; set; }
         public decimal Amount { get; set; }
     }
 
@@ -25,10 +24,10 @@ namespace BitRex.Application.Test
             try
             {
                 var response = new Response<string> { Succeeded = true };
-                var swap = await _bitcoinCoreClient.SwapBitcoinAddress(request.Address, request.Amount, request.LightningAddress);
+                var swap = await _bitcoinCoreClient.PayBitcoin(request.Address, request.Amount);
                 response.StatusCode = (int)HttpStatusCode.OK;
                 response.Message = "Swap address generated successfully";
-                response.Data = swap.response;
+                response.Data = "Sent";
                 return response;
             }
             catch (Exception ex)

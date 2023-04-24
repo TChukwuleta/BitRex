@@ -14,8 +14,9 @@ namespace BitRex.Application.Swap.Commands
 {
     public class ExchangeSummaryCommand : IRequest<Response<object>>
     {
-        public decimal Amount { get; set; }
-        public ExchangeType ExchangeType { get; set; }
+        public decimal AmountInBtc { get; set; }
+        public ExchangeType FromExchange { get; set; }
+        public ExchangeType ToExchange { get; set; }
     }
 
     public class ExchangeSummaryCommandHandler : IRequestHandler<ExchangeSummaryCommand, Response<object>>
@@ -46,39 +47,58 @@ namespace BitRex.Application.Swap.Commands
                 decimal serviceChargeValue = default;
                 decimal total = default;
                 decimal.TryParse(_config["DustValue"], out decimal dustValue);
-                decimal.TryParse(_config["DollarToNairaRate"], out decimal dollarNairaRate);
                 decimal.TryParse(_config["MinimumAmountBtc"], out decimal minAmount);
                 decimal.TryParse(_config["MaximumAmountBtc"], out decimal maxAmount);
 
-                var dollarEquiv = request.Amount / dollarNairaRate;
-                var price = await _graphqlService.GetPrices(PriceGraphRangeType.ONE_DAY);
-                var monetaryValue = (dollarEquiv / price);
-                if (monetaryValue < minAmount)
+                if (request.AmountInBtc < minAmount)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                     response.Message = "Value is less than minimum amount that the system can process";
                     return response;
                 }
-                if (monetaryValue > maxAmount)
+                if (request.AmountInBtc > maxAmount)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                     response.Message = "Value is more than maximum amount that the system can process";
                     return response;
                 }
-                switch (request.ExchangeType)
+                switch (request.ToExchange)
                 {
                     case ExchangeType.Bitcoin:
-
-                        decimal.TryParse(_config["ServiceCharge:LnBtcToLnBtc"], out serviceCharge);
-                        decimal.TryParse(_config["MinerFee:LnBtcToBtc"], out minerFee);
-                        serviceChargeValue = monetaryValue * (serviceCharge / 100);
-                        total = monetaryValue - (serviceChargeValue + minerFee);
+                        switch (request.FromExchange)
+                        {
+                            case ExchangeType.Bitcoin:
+                                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                response.Message = "Cannot convert to same currency type";
+                                return response;
+                            case ExchangeType.LnBtc:
+                                decimal.TryParse(_config["ServiceCharge:LnBtcToBtc"], out serviceCharge);
+                                decimal.TryParse(_config["MinerFee:LnBtcToBtc"], out minerFee);
+                                serviceChargeValue = request.AmountInBtc * (serviceCharge / 100);
+                                total = request.AmountInBtc - (serviceChargeValue + minerFee);
+                                break;
+                            default:
+                                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                response.Message = "Invalid type";
+                                return response;
+                        }
                         break;
                     case ExchangeType.LnBtc:
-                        decimal.TryParse(_config["ServiceCharge:BtcToBtc"], out serviceCharge);
-                        decimal.TryParse(_config["MinerFee:BtcToLnBtc"], out minerFee);
-                        serviceChargeValue = monetaryValue * (serviceCharge / 100);
-                        total = monetaryValue - (serviceChargeValue + minerFee);
+                        switch (request.FromExchange)
+                        {
+                            case ExchangeType.Bitcoin:
+                                decimal.TryParse(_config["ServiceCharge:BtcToLnBtc"], out serviceCharge);
+                                decimal.TryParse(_config["MinerFee:BtcToLnBtc"], out minerFee);
+                                serviceChargeValue = request.AmountInBtc * (serviceCharge / 100);
+                                total = request.AmountInBtc - (serviceChargeValue + minerFee);
+                                break;
+                            case ExchangeType.LnBtc:
+                                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                                response.Message = "Cannot convert to same currency type";
+                                return response;
+                            default:
+                                break;
+                        }
                         break;
                     default:
                         break;
@@ -88,12 +108,10 @@ namespace BitRex.Application.Swap.Commands
                 {
                     summary = new
                     {
-                        //ServiceChargeInDollars = serviceCharge,
-                        ProposedAmountInNaira = request.Amount,
-                        ProposedAmountInDollar = (request.Amount / dollarNairaRate),
+                        ServiceCharge = $"{serviceCharge} %",
+                        ProposedValue = request.AmountInBtc,
+                        MinerFee = minerFee,
                         ReturnValue = total,
-                        CurrentBitcoinPriceInDollar = $"$ {price}",
-                        CurrentBitcoinPriceInNaira = $"N {price * dollarNairaRate}",
                         Message = "Please note that the amount inputed is less than or equal to the dust value. Hence it would not be processed"
                     };
                 }
@@ -101,17 +119,15 @@ namespace BitRex.Application.Swap.Commands
                 {
                     summary = new
                     {
-                        //ServiceChargeInDollars = serviceCharge,
-                        ProposedAmountInNaira = request.Amount,
-                        ProposedAmountInDollar = (request.Amount / dollarNairaRate),
-                        ReturnValueInSats = (total * 100000000),
-                        CurrentBitcoinPriceInDollar = $"$ {price}",
-                        CurrentBitcoinPriceInNaira = $"N {price * dollarNairaRate}",
+                        ServiceCharge = $"{serviceCharge} %",
+                        ProposedValue = request.AmountInBtc,
+                        MinerFee = minerFee,
+                        ReturnValue = total,
                     };
                 }
 
                 response.Succeeded = true;
-                response.Message = $"Remittance summary was retrieved successfully";
+                response.Message = $"Exchange summary was retrieved successfully";
                 response.Data = summary;
                 response.StatusCode = (int)HttpStatusCode.OK;
                 return response;

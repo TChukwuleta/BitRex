@@ -53,12 +53,12 @@ namespace BitRex.Infrastructure.Services
             var helper = new LightningHelper(_config);
             try
             {
-                var userClient = helper.GetUserClient();
+                var userClient = helper.GetAdminClient();
                 var request = new PayReqString
                 {
                     PayReq = paymentRequest
                 };
-                var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 if (response == null)
                 {
                     return (false, string.Empty, 0, 0);
@@ -78,12 +78,12 @@ namespace BitRex.Infrastructure.Services
             var helper = new LightningHelper(_config);
             try
             {
-                var userClient = helper.GetUserClient();
+                var userClient = helper.GetAdminClient();
                 var request = new PayReqString
                 {
                     PayReq = paymentRequest
                 };
-                var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var response = await userClient.DecodePayReqAsync(request, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 if (response.NumSatoshis > Math.Ceiling(amount))
                 {
                     return (false, "Invoice amount is greater than the fiat equivalent of sats to be paid.");
@@ -107,8 +107,8 @@ namespace BitRex.Infrastructure.Services
             var channelBalanceRequest = new ChannelBalanceRequest();
             try
             {
-                var userClient = helper.GetUserClient();
-                response = userClient.ChannelBalance(channelBalanceRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) }).Balance;
+                var userClient = helper.GetAdminClient();
+                response = userClient.ChannelBalance(channelBalanceRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) }).Balance;
                 return response;
             }
             catch (Exception ex)
@@ -125,8 +125,8 @@ namespace BitRex.Infrastructure.Services
             long response = default;
             try
             {
-                var userClient = helper.GetUserClient();
-                response = userClient.WalletBalance(walletBalanceRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) }).TotalBalance;
+                var userClient = helper.GetAdminClient();
+                response = userClient.WalletBalance(walletBalanceRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) }).TotalBalance;
                 return response;
             }
             catch (Exception ex)
@@ -185,16 +185,16 @@ namespace BitRex.Infrastructure.Services
             var walletBalance = await GetWalletBalance();
             try
             {
-                var userClient = helper.GetUserClient();
+                var userClient = helper.GetAdminClient();
                 paymentReq.PayReq = paymentRequest;
-                var decodedPaymentReq = userClient.DecodePayReq(paymentReq, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var decodedPaymentReq = userClient.DecodePayReq(paymentReq, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 if (walletBalance < decodedPaymentReq.NumSatoshis)
                 {
                     throw new ArgumentException("Unable to complete lightning payment. Insufficient funds");
                 }
                 sendRequest.Amt = decodedPaymentReq.NumSatoshis;
                 sendRequest.PaymentRequest = paymentRequest;
-                var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 result = response.PaymentError;
                 var hash = response.PaymentHash.ToStringUtf8();
                 var yo = response.PaymentPreimage.ToByteArray();
@@ -220,9 +220,9 @@ namespace BitRex.Infrastructure.Services
             sendRequest.CltvLimit = 40;
             try
             {
-                var userClient = helper.GetUserClient();
+                var userClient = helper.GetAdminClient();
                 sendRequest.PaymentRequest = paymentRequest;
-                var response = await userClient.SendPaymentSyncAsync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var response = await userClient.SendPaymentSyncAsync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 result = response.PaymentError;
                 return result;
             }
@@ -241,16 +241,16 @@ namespace BitRex.Infrastructure.Services
             var walletBalance = await GetWalletBalance();
             try
             {
-                var userClient = helper.GetUserClient();
+                var userClient = helper.GetAdminClient();
                 paymentReq.PayReq = paymentRequest;
-                var decodedPaymentReq = userClient.DecodePayReq(paymentReq, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var decodedPaymentReq = userClient.DecodePayReq(paymentReq, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 if (walletBalance < decodedPaymentReq.NumSatoshis)
                 {
                     throw new ArgumentException("Unable to complete lightning payment. Insufficient funds");
                 }
                 sendRequest.Amt = decodedPaymentReq.NumSatoshis;
                 sendRequest.PaymentRequest = paymentRequest;
-                var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetUserMacaroon()) });
+                var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 result = response.PaymentError;
                 if (!string.IsNullOrEmpty(result))
                 {

@@ -36,200 +36,6 @@ namespace BitRex.Infrastructure.Services
             _network = Network.RegTest;
         }
 
-        public async Task<string> BitcoinRequestServer(string walletname, string methodName, List<JToken> parameters, int count)
-        {
-            string response = default;
-            var url = serverIp;
-            if (!string.IsNullOrEmpty(walletname))
-            {
-                url = $"{url}/wallet/{walletname}";
-            }
-            try
-            {
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
-                webRequest.Credentials = new NetworkCredential(username, password);
-                webRequest.Method = "POST";
-                webRequest.ContentType = "application/json-rpc";
-
-                JObject joe = new JObject();
-                joe.Add(new JProperty("jsonrpc", "1.0"));
-                joe.Add(new JProperty("id", "curltest"));
-                joe.Add(new JProperty("method", methodName));
-                JArray props = new JArray();
-                foreach (var parameter in parameters)
-                {
-                    props.Add(parameter);
-                }
-                JArray paramsProps = new JArray();
-                paramsProps.Add(count);
-                paramsProps.Add(props);
-                joe.Add(new JProperty("params", paramsProps));
-
-                string s = JsonConvert.SerializeObject(joe);
-                byte[] byteArray = Encoding.UTF8.GetBytes(s);
-                webRequest.ContentLength = byteArray.Length;
-                Stream stream = webRequest.GetRequestStream();
-                stream.Write(byteArray, 0, byteArray.Length);
-                stream.Close();
-
-                StreamReader streamReader = null;
-                WebResponse webResponse = webRequest.GetResponse();
-                streamReader = new StreamReader(webResponse.GetResponseStream(), true);
-                response = streamReader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject(response).ToString();
-                return data;
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
-        }
-
-        public async Task<string> BitcoinRequestServer(string walletname, string methodName, List<string> parameters, int count)
-        {
-            try
-            {
-                return await BitcoinRequestServer(walletname, methodName, parameters.Select(c => new JValue(c)).ToList<JToken>(), count);
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-        }
-
-        public async Task<string> BitcoinRequestServer(string methodName, List<JToken> parameters)
-        {
-            string response = default;
-            try
-            {
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(serverIp);
-                webRequest.Credentials = new NetworkCredential(username, password);
-                webRequest.Method = "POST";
-                webRequest.ContentType = "application/json-rpc";
-
-                JObject joe = new JObject();
-                joe.Add(new JProperty("jsonrpc", "1.0"));
-                joe.Add(new JProperty("id", "curltest"));
-                joe.Add(new JProperty("method", methodName));
-                JArray props = new JArray();
-                foreach (var parameter in parameters)
-                {
-                    props.Add(parameter);
-                }
-                joe.Add(new JProperty("params", props));
-
-                string s = JsonConvert.SerializeObject(joe);
-                byte[] byteArray = Encoding.UTF8.GetBytes(s);
-                webRequest.ContentLength = byteArray.Length;
-                Stream stream = webRequest.GetRequestStream();
-                stream.Write(byteArray, 0, byteArray.Length);
-                stream.Close();
-
-                StreamReader streamReader = null; 
-                WebResponse webResponse = webRequest.GetResponse();
-                streamReader = new StreamReader(webResponse.GetResponseStream(), true);
-                response = streamReader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject(response).ToString();
-                return data;
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
-        }
-
-        public async Task<string> BitcoinRequestServer(string methodName, List<string> parameters)
-        {
-            try
-            {
-                return await BitcoinRequestServer(methodName, parameters.Select(c => new JValue(c)).ToList<JToken>());
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
-        }
-
-        public async Task<string> BitcoinRequestServer(string walletname, string methodName, string parameters)
-        {
-            try
-            {
-                var url = serverIp;
-                if (!string.IsNullOrEmpty(walletname))
-                {
-                    url = $"{url}/wallet/{walletname}";
-                }
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
-                webRequest.Credentials = new NetworkCredential(username, password);
-                webRequest.ContentType = "application/json-rpc";
-                webRequest.Method = "POST";
-                string responseValue = string.Empty;
-                JObject joe = new JObject();
-                joe.Add(new JProperty("jsonrpc", "1.0"));
-                joe.Add(new JProperty("id", "curltext"));
-                joe.Add(new JProperty("method", methodName));
-                JArray props = new JArray();
-                props.Add(parameters);
-                joe.Add(new JProperty("params", props));
-                // Serialize json for request
-                string s = JsonConvert.SerializeObject(joe);
-                byte[] byteArray = Encoding.UTF8.GetBytes(s);
-                webRequest.ContentLength = byteArray.Length;
-                Stream dataStream = webRequest.GetRequestStream();
-                dataStream.Write(byteArray, 0, byteArray.Length);
-                dataStream.Close();
-                // Deserialize the response
-                StreamReader streamReader = null;
-                WebResponse webResponse = webRequest.GetResponse();
-                streamReader = new StreamReader(webResponse.GetResponseStream(), true);
-                responseValue = streamReader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject(responseValue).ToString();
-                return data;
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
-        }
-
-        public async Task<string> BitcoinRequestServer(string methodName)
-        {
-            string response = default;
-            try
-            {
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(serverIp);
-                webRequest.Credentials = new NetworkCredential(username, password);
-                webRequest.Method = "POST";
-                webRequest.ContentType = "application/json-rpc";
-                JObject joe = new JObject();
-                JArray props = new JArray();
-                joe.Add(new JProperty("jsonrpc", "1.0"));
-                joe.Add(new JProperty("id", "curltext"));
-                joe.Add(new JProperty("method", methodName));
-                joe.Add(new JProperty("params", props));
-                string s = JsonConvert.SerializeObject(joe);
-                byte[] bytes = Encoding.UTF8.GetBytes(s);
-                webRequest.ContentLength = bytes.Length;
-                Stream stream = webRequest.GetRequestStream();
-                stream.Write(bytes, 0, bytes.Length);
-                stream.Close();
-
-                StreamReader streamReader = null;
-                WebResponse webResponse = webRequest.GetResponse();
-                streamReader = new StreamReader(webResponse.GetResponseStream(), true);
-                response = streamReader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject(response).ToString();
-                return data;
-            }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-        }
 
         public async Task<string> BitcoinRequestServer(string methodName, string parameters, int value)
         {
@@ -286,46 +92,6 @@ namespace BitRex.Infrastructure.Services
             }
         }
 
-        public async Task<string> WalletInformation(string walletname, string methodname)
-        {
-            string response = default;
-            var url = serverIp;
-            if (!string.IsNullOrEmpty(walletname))
-            {
-                url = $"{serverIp}/wallet/{walletname}";
-            }
-            try
-            {
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(url);
-                webRequest.Credentials = new NetworkCredential(username, password);
-                webRequest.Method = "POST";
-                webRequest.ContentType = "application/json-rpc";
-                JObject joe = new JObject();
-                JArray props = new JArray();
-                joe.Add(new JProperty("jsonrpc", "1.0"));
-                joe.Add(new JProperty("id", "curltext"));
-                joe.Add(new JProperty("method", methodname));
-                joe.Add(new JProperty("params", props));
-                string s = JsonConvert.SerializeObject(joe);
-                byte[] bytes = Encoding.UTF8.GetBytes(s);
-                webRequest.ContentLength = bytes.Length;
-                Stream stream = webRequest.GetRequestStream();
-                stream.Write(bytes, 0, bytes.Length);
-                stream.Close();
-
-                StreamReader streamReader = null;
-                WebResponse webResponse = webRequest.GetResponse();
-                streamReader = new StreamReader(webResponse.GetResponseStream(), true);
-                response = streamReader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject(response).ToString();
-                return data;
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
-        }
 
         public async Task<long> GetWalletBalance()
         {
@@ -462,7 +228,7 @@ namespace BitRex.Infrastructure.Services
             }
         }
 
-        public async Task<string> LnBtcToBitcoinSwap(string address, decimal amount)
+        public async Task<string> PayBitcoin(string address, decimal amount)
         {
             try
             {
@@ -486,7 +252,7 @@ namespace BitRex.Infrastructure.Services
                     }
                     if (output.Amount > amt)
                     {
-                        transaction.Inputs.Add(new TxIn(new OutPoint(output.OutPoint.Hash, output.OutPoint.N)));
+                        transaction.Inputs.Add(new TxIn(new OutPoint(output.OutPoint.Hash, output.OutPoint.N), senderAddress.ScriptPubKey));
                         coins.Add(output);
                         count++;
                     }
@@ -494,11 +260,11 @@ namespace BitRex.Infrastructure.Services
 
                 // Method 1
                 var txBuilder = _network.CreateTransactionBuilder()
-                    .SetVersion(2)
+                    .SetVersion(1)
                     .AddCoins(coins.Select(c => c.AsCoin()))
-                    .Send(destinationAddress.ScriptPubKey, amt)
+                    .Send(destinationAddress, amt)
                     .SetChange(changeAddress)
-                    .SendFees(Money.Satoshis(200))
+                    .SendFees(Money.Satoshis(300))
                     .AddKeys(privKey)
                     .BuildTransaction(true);
                 var txHex = txBuilder.ToHex();
@@ -514,21 +280,22 @@ namespace BitRex.Infrastructure.Services
 
                 // Method 2
                 // Add the recipient output to the transaction outputs
-                transaction.Outputs.Add(new TxOut(amt, destinationAddress.ScriptPubKey));
+                /*transaction.Outputs.Add(new TxOut(amt, destinationAddress.ScriptPubKey));
                 // Calculate the change and add it to the transaction outputs leave out 200 sats as miner fees.
                 var totalInputAmount = coins.Sum(x => x.Amount);
-                var changeAmount = totalInputAmount - (amount + 200);
+                var changeAmount = totalInputAmount - (amount + 350);
                 var change = Money.Satoshis(changeAmount);
                 transaction.Outputs.Add(new TxOut(change, changeAddress.ScriptPubKey));
                 // Sign the transaction inputs
-                for (int i = 0; i < transaction.Inputs.Count; i++)
+                foreach (var input in transaction.Inputs)
                 {
-                    var input = transaction.Inputs[i];
-                    var unspentOutput = coins[i];
+                    input.ScriptSig = senderAddress.ScriptPubKey;
+                    input.WitScript = senderAddress.ScriptPubKey.WitHash.ScriptPubKey;
                 }
+
                 // Set the transaction version to 2 and include the appropriate witness flags
-                transaction.Version = 2;
-                transaction.Inputs.AsIndexedInputs().ToList().ForEach(x => x.WitScript = WitScript.Empty);
+                transaction.Version = 1;
+                transaction.Inputs.AsIndexedInputs().ToList().ForEach(x => x.WitScript = WitScript.Empty);*/
 
                 // Test and see if the transaction would be accepted by the mempool
                 /*var testTxn = await rpc.TestMempoolAcceptAsync(transaction);
@@ -610,7 +377,6 @@ namespace BitRex.Infrastructure.Services
                 }
                 var rpc = await CreateRpcClient();
                 var bitcoinAddress = BitcoinAddress.Create(address, _network);
-                var unspent = await rpc.ListUnspentAsync();
                 var swapAddress = await rpc.GetRawChangeAddressAsync();
                 var amt = new Money(amount, MoneyUnit.Satoshi);
 
@@ -651,14 +417,13 @@ namespace BitRex.Infrastructure.Services
             }
         }
 
-        public async Task<(bool success, string message)> ConfirmAddress(string address, string txid, string invoice, string swapaddress)
+        public async Task<(bool success, string message)> ConfirmAddressTransaction(string address, string txid, string invoice)
         {
             try
             {
                 var rpc = await CreateRpcClient();
                 // Get the address you want to check
                 BitcoinAddress userAddress = BitcoinAddress.Create(address, _network);
-                BitcoinAddress swapAddress = BitcoinAddress.Create(swapaddress, _network);
                 var refundAddress = await rpc.GetNewAddressAsync();
 
                 uint256.TryParse(txid, out uint256 txId);
@@ -671,14 +436,12 @@ namespace BitRex.Infrastructure.Services
                         {
                             break;
                         }
-                    await Task.Delay(10000);
+                    await Task.Delay(1000);
                 }
 
                 var validateRequest = await _lightningService.ValidateLightningAddress(invoice);
                 var payinvoice = await _lightningService.SendLightning(invoice);
 
-                /*8. Redeem the Lightning invoice: Once the Bitcoin user has claimed the Bitcoin funds, they can reveal the secret 
-                    to the Lightning Network user, who can then redeem the Lightning invoice.*/
 
                 // Get the transaction output of the swap transaction
                 var fundingTx = await rpc.GetRawTransactionAsync(txId);
@@ -704,8 +467,6 @@ namespace BitRex.Infrastructure.Services
                         }
                     }
                 }
-
-                
                 foreach (var op in script.ToOps())
                 {
                     if (op.Code == OpcodeType.OP_IF)
@@ -722,26 +483,19 @@ namespace BitRex.Infrastructure.Services
                     }
                 }
 
-                // Get the refund public key from the redeem script
-                //var redeemScript = script.ToOps().Last().PushData;
-
                 // Create the transaction to redeem the swap output and spend the funds
                 var redeemTx = _network.CreateTransaction();
-                redeemTx.Inputs.Add(new TxIn(new NBitcoin.OutPoint(txId, outputIndex), script));
+                redeemTx.Inputs.Add(new TxIn(new OutPoint(txId, outputIndex), script));
                 // Create the output to refund the funds to
                 var refundTxOut = new TxOut(fundingOutput.Value, refundPubKey);
                 // Add the output to the transaction
                 redeemTx.Outputs.Add(refundTxOut);
                 // Sign the transaction with the private key
                 redeemTx.Inputs[0].ScriptSig = script;
-                //tx.Sign(privateKey, false);
-
                 // Broadcast the transaction
                 var result = await rpc.SendRawTransactionAsync(redeemTx);
                 Console.WriteLine("Transaction sent: " + result);
-
-
-                return (true, "Submarin swap completed");
+                return (true, "Submarine swap completed");
             }
             catch (Exception ex)
             {

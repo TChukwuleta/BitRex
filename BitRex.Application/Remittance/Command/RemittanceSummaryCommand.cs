@@ -41,11 +41,11 @@ namespace BitRex.Application.Remittance.Command
                 switch (request.ExchangeType)
                 {
                     case ExchangeType.Bitcoin:
-                        serviceCharge = bitcoinFeeCharges * monetaryValue;
+                        serviceCharge = (bitcoinFeeCharges / 100) * monetaryValue;
                         total = monetaryValue - serviceCharge;
                         break;
                     case ExchangeType.LnBtc:
-                        serviceCharge = lightningFeeCharges * monetaryValue;
+                        serviceCharge = (lightningFeeCharges / 100) * monetaryValue;
                         total = monetaryValue - serviceCharge;
                         break;
                     default:

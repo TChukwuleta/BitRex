@@ -37,7 +37,7 @@ namespace BitRex.Application.Swap.Commands
                 switch (transaction.DestinationPaymentModeType)
                 {
                     case Core.Enums.PaymentModeType.Bitcoin:
-                        var makeBitcoinPayment = await _bitcoinCoreClient.LnBtcToBitcoinSwap(transaction.DestinationAddress, transaction.DestinationAmount);
+                        var makeBitcoinPayment = await _bitcoinCoreClient.PayBitcoin(transaction.DestinationAddress, transaction.DestinationAmount);
                         break;
                     case Core.Enums.PaymentModeType.Lightning:
                         var makeLightningPayment = await _lightningService.SendLightning(transaction.DestinationAddress);

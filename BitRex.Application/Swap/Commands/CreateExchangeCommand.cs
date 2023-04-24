@@ -12,7 +12,7 @@ namespace BitRex.Application.Swap.Commands
 {
     public class CreateExchangeCommand : IRequest<Response<object>>
     {
-        public decimal Amount { get; set; }
+        public decimal AmountInBtc { get; set; }
         public string Source { get; set; }
         public string Destination { get; set; }
         public string Narration { get; set; }
@@ -26,15 +26,13 @@ namespace BitRex.Application.Swap.Commands
         private readonly IBitcoinCoreClient _bitcoinCoreClient;
         private readonly ILightningService _lightningService;
         private readonly IAppDbContext _context;
-        private readonly IGraphqlService _graphqlService;
         public CreateExchangeCommandHandler(IConfiguration config, IBitcoinCoreClient bitcoinCoreClient, 
-            ILightningService lightningService, IAppDbContext context, IGraphqlService graphqlService)
+            ILightningService lightningService, IAppDbContext context)
         {
             _config = config;
             _lightningService = lightningService;
             _bitcoinCoreClient = bitcoinCoreClient;
             _context = context;
-            _graphqlService = graphqlService;
         }
 
         public async Task<Response<object>> Handle(CreateExchangeCommand request, CancellationToken cancellationToken)
@@ -46,7 +44,6 @@ namespace BitRex.Application.Swap.Commands
             decimal serviceChargeValue = default;
             decimal total = default;
             decimal.TryParse(_config["DustValue"], out decimal dustValue);
-            decimal.TryParse(_config["DollarToNairaRate"], out decimal dollarNairaRate);
             decimal.TryParse(_config["MinimumAmountBtc"], out decimal minAmount);
             decimal.TryParse(_config["MaximumAmountBtc"], out decimal maxAmount);
             try
@@ -54,22 +51,18 @@ namespace BitRex.Application.Swap.Commands
                 var transactionRecord = new CreateTransactionDto
                 {
                     Narration = request.Narration,
-                    SourceAmount = request.Amount,
+                    SourceAmount = request.AmountInBtc,
                     TransactionReference = reference,
                     Hash = new Key().PubKey.ToHex()
                 };
-
-                var dollarEquiv = request.Amount / dollarNairaRate;
-                var price = await _graphqlService.GetPrices(PriceGraphRangeType.ONE_DAY);
-                var monetaryValue = (dollarEquiv / price);
                 
-                if (monetaryValue < minAmount)
+                if (request.AmountInBtc < minAmount)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                     response.Message = "Value is less than minimum amount that the system can process";
                     return response;
                 }
-                if (monetaryValue > maxAmount)
+                if (request.AmountInBtc > maxAmount)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                     response.Message = "Value is more than maximum amount that the system can process";
@@ -88,7 +81,6 @@ namespace BitRex.Application.Swap.Commands
                                 response.StatusCode = (int)HttpStatusCode.BadRequest;
                                 response.Message = "Cannot convert to same currency type";
                                 return response;
-                                break;
                             case ExchangeType.LnBtc:
                                 var address = await _bitcoinCoreClient.ValidateBitcoinAddress(request.Destination);
                                 if (!address)
@@ -97,10 +89,10 @@ namespace BitRex.Application.Swap.Commands
                                     response.Message = "Invalid bitcoin address";
                                     return response;
                                 }
-                                decimal.TryParse(_config["ServiceCharge:LnBtcToLnBtc"], out serviceCharge);
+                                decimal.TryParse(_config["ServiceCharge:LnBtcToBtc"], out serviceCharge);
                                 decimal.TryParse(_config["MinerFee:LnBtcToBtc"], out minerFee);
-                                serviceChargeValue = monetaryValue * (serviceCharge / 100);
-                                total = monetaryValue - (serviceChargeValue + minerFee);
+                                serviceChargeValue = request.AmountInBtc * (serviceCharge / 100);
+                                total = request.AmountInBtc - (serviceChargeValue + minerFee);
                                 if ((total * 100000000) <= dustValue)
                                 {
                                     response.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -139,33 +131,28 @@ namespace BitRex.Application.Swap.Commands
                                     response.Message = "Invalid lightning invoice";
                                     return response;
                                 }
-                                decimal.TryParse(_config["ServiceCharge:BtcToBtc"], out serviceCharge);
+                                decimal.TryParse(_config["ServiceCharge:BtcToLnBtc"], out serviceCharge);
                                 decimal.TryParse(_config["MinerFee:BtcToLnBtc"], out minerFee);
-                                serviceChargeValue = monetaryValue * (serviceCharge / 100);
-                                total = monetaryValue - (serviceChargeValue + minerFee);
+                                serviceChargeValue = request.AmountInBtc * (serviceCharge / 100);
+                                total = request.AmountInBtc - (serviceChargeValue + minerFee);
                                 if ((total * 100000000) <= dustValue)
                                 {
                                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                                     response.Message = "Monetary value cannot be less than the dust value";
                                     return response;
                                 }
-
-                                if ((total * 100000000) < validateInvoice.amount)
+                                var val = total * 100000000;
+                                var confirmValue = await _lightningService.ConfirmLightningValue(request.Destination, val);
+                                if (!confirmValue.success)
                                 {
                                     response.StatusCode = (int)HttpStatusCode.BadRequest;
-                                    response.Message = $"Invoice value is greater than return value by {validateInvoice.amount - (total * 100000000)}";
-                                    return response;
-                                }
-                                if ((total * 100000000) > validateInvoice.amount)
-                                {
-                                    response.StatusCode = (int)HttpStatusCode.BadRequest;
-                                    response.Message = $"Invoice value is less than return value by {(total * 100000000) - validateInvoice.amount}";
+                                    response.Message = confirmValue.message;
                                     return response;
                                 }
                                 var generateAddress = await _bitcoinCoreClient.SwapBitcoinAddress(request.Source, validateInvoice.amount, request.Destination);
                                 var addressResult = new 
                                 {
-                                    Address = generateAddress
+                                    Address = generateAddress.response
                                 };
                                 transactionRecord.SourceAddress = generateAddress.response;
                                 transactionRecord.DestinationAddress = request.Destination;
@@ -176,7 +163,7 @@ namespace BitRex.Application.Swap.Commands
                                 var transaction = await new TransactionHelper(_context).CreateTransaction(transactionRecord);
                                 response.Succeeded = true;
                                 response.Data = addressResult;
-                                response.Message = $"A lightning invoice has been generated successfully";
+                                response.Message = $"A bitcoin address has been generated successfully";
                                 response.StatusCode = (int)HttpStatusCode.OK;
                                 return response;
                                 break;

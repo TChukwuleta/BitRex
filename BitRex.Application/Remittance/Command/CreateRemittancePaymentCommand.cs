@@ -58,30 +58,29 @@ namespace BitRex.Application.Remittance.Command
                     SourceAmount = request.Amount,
                     TransactionReference = reference,
                     SourcePaymentModeType = PaymentModeType.Fiat,
-                    SourceAddress = "Admin-Fiat",
-                    Hash = "Admin-Fiat",
+                    SourceAddress = "Fiat",
+                    Hash = "Fiat",
                     TransactionStatus = TransactionStatus.Initiated
                 };
                 var dollarEquiv = request.Amount / dollarNairaRate;
                 var price = await _graphqlService.GetPrices(PriceGraphRangeType.ONE_DAY);
                 var monetaryValue = (dollarEquiv / price);
-                if (monetaryValue <= dustValue)
-                {
-                    response.StatusCode = (int)HttpStatusCode.BadRequest;
-                    response.Message = "Monetary value cannot be less than the dust value";
-                    return response;
-                }
-                
                 switch (request.ExchangeType)
                 {
                     case ExchangeType.Bitcoin:
-                        serviceCharge = bitcoinFeeCharges * monetaryValue;
+                        serviceCharge = (bitcoinFeeCharges / 100) * monetaryValue;
                         total = monetaryValue - serviceCharge;
                         var validateBitcoinAddress = await _bitcoinCoreClient.ValidateBitcoinAddress(request.Destination);
                         if (!validateBitcoinAddress)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = "Invalid bitcoin address";
+                            return response;
+                        }
+                        if (total <= dustValue)
+                        {
+                            response.StatusCode = (int)HttpStatusCode.BadRequest;
+                            response.Message = "Monetary value cannot be less than the dust value";
                             return response;
                         }
                         var bitcoinBalance = await _bitcoinCoreClient.GetWalletBalance();
@@ -97,8 +96,14 @@ namespace BitRex.Application.Remittance.Command
                         transactionRecord.SourcePaymentModeType = PaymentModeType.Fiat;
                         break;
                     case ExchangeType.LnBtc:
-                        serviceCharge = lightningFeeCharges * monetaryValue;
+                        serviceCharge = (lightningFeeCharges / 100) * monetaryValue;
                         total = monetaryValue - serviceCharge;
+                        if (total <= dustValue)
+                        {
+                            response.StatusCode = (int)HttpStatusCode.BadRequest;
+                            response.Message = "Monetary value cannot be less than the dust value";
+                            return response;
+                        }
                         var validateLightningRequest = await _lightningService.ValidateLightningAddress(request.Destination);
                         if (!validateLightningRequest.success)
                         {

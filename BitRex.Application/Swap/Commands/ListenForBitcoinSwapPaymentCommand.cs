@@ -42,7 +42,7 @@ namespace BitRex.Application.Swap.Commands
                                 var lightningPaymentConfirmation = await _lightningService.ListenForSettledInvoice();
                                 reference = lightningPaymentConfirmation.Reference;
                             } while (txn.TransactionReference != reference);
-                            var makeBitcoinPayment = await _bitcoinCoreClient.LnBtcToBitcoinSwap(txn.DestinationAddress, txn.DestinationAmount);
+                            var makeBitcoinPayment = await _bitcoinCoreClient.PayBitcoin(txn.DestinationAddress, txn.DestinationAmount);
                             break;
                         case PaymentModeType.Lightning:
                             var makeLightningPayment = await _lightningService.SendLightning(txn.DestinationAddress);

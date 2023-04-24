@@ -31,7 +31,7 @@ namespace BitRex.Application.Paystack.Commands
             var response = new Response<string> { Succeeded = false };
             try
             {
-                var transaction = await _context.Transactions.FirstOrDefaultAsync(c => c.TransactionReference == request.Reference);
+                var transaction = await _context.Transactions.FirstOrDefaultAsync(c => c.TransactionReference == request.Reference && c.SourceAddress.ToLower().Contains("fiat"));
                 if (transaction == null)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;
@@ -68,7 +68,7 @@ namespace BitRex.Application.Paystack.Commands
                             response.Message = "Insufficient balance. Kindly contact support";
                             return response;
                         }
-                        var bitcoinPayment = await _bitcoinCoreClient.MakePayment(transaction);
+                        var bitcoinPayment = await _bitcoinCoreClient.PayBitcoin(transaction.DestinationAddress, transaction.DestinationAmount);
                         if (string.IsNullOrEmpty(bitcoinPayment))
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
