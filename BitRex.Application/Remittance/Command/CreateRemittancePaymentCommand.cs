@@ -77,20 +77,21 @@ namespace BitRex.Application.Remittance.Command
                             response.Message = "Invalid bitcoin address";
                             return response;
                         }
-                        if (total <= dustValue)
+                        var btcval = (total * 100000000);
+                        if (btcval <= dustValue)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = "Monetary value cannot be less than the dust value";
                             return response;
                         }
                         var bitcoinBalance = await _bitcoinCoreClient.GetWalletBalance();
-                        if (bitcoinBalance <= total)
+                        if (bitcoinBalance <= btcval)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = "Cannot process transaction. Insufficient bitcoin balance";
                             return response;
                         }
-                        transactionRecord.DestinationAmount = (total * 100000000);
+                        transactionRecord.DestinationAmount = btcval;
                         transactionRecord.DestinationAddress = request.Destination;
                         transactionRecord.DestinationPaymentModeType = PaymentModeType.Bitcoin;
                         transactionRecord.SourcePaymentModeType = PaymentModeType.Fiat;
@@ -98,7 +99,8 @@ namespace BitRex.Application.Remittance.Command
                     case ExchangeType.LnBtc:
                         serviceCharge = (lightningFeeCharges / 100) * monetaryValue;
                         total = monetaryValue - serviceCharge;
-                        if (total <= dustValue)
+                        var lnval = (total * 100000000);
+                        if (lnval <= dustValue)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = "Monetary value cannot be less than the dust value";
@@ -112,20 +114,20 @@ namespace BitRex.Application.Remittance.Command
                             return response;
                         }
                         var lightningBalance = await _lightningService.GetWalletBalance();
-                        if (lightningBalance <= (total * 100000000))
+                        if (lightningBalance <= lnval)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = "Cannot process transaction. Insufficient lightning balance";
                             return response;
                         }
-                        var confirmLightningRequestAmount = await _lightningService.ConfirmLightningValue(request.Destination, (total * 100000000));
+                        var confirmLightningRequestAmount = await _lightningService.ConfirmLightningValue(request.Destination, lnval);
                         if (!confirmLightningRequestAmount.success)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
                             response.Message = $"Cannot process transaction. {confirmLightningRequestAmount.message}";
                             return response;
                         }
-                        transactionRecord.DestinationAmount = (total * 100000000);
+                        transactionRecord.DestinationAmount = lnval;
                         transactionRecord.DestinationAddress = request.Destination;
                         transactionRecord.SourcePaymentModeType = PaymentModeType.Fiat;
                         transactionRecord.DestinationPaymentModeType = PaymentModeType.Lightning;

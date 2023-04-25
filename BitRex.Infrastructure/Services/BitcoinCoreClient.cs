@@ -235,9 +235,9 @@ namespace BitRex.Infrastructure.Services
                 var destinationAddress = BitcoinAddress.Create(address, _network); // recipient address
                 var rpc = await CreateRpcClient();
                 var changeAddress = await rpc.GetRawChangeAddressAsync(); // change address
-                var senderAddress = BitcoinAddress.Create("bcrt1q5gnrglszt7vvw3509tez9tf67k0eakrz4qgwha", _network); // sender address
+                var senderAddress = BitcoinAddress.Create("bcrt1qd3nxk4tjpnzph4hrte660s80asqerhukqsy5gy", _network); // sender address
                 var amt = Money.Satoshis(amount); // the amount you want to send
-                var privKey = await rpc.DumpPrivKeyAsync(senderAddress); // Private key associated with sender address
+                //var privKey = await rpc.DumpPrivKeyAsync(senderAddress); // Private key associated with sender address
                 // Get the unspent outputs for the sender's address
                 var unspentSenderOutputs = rpc.ListUnspent().Where(u => u.Address == senderAddress).ToList();
                 var coins = new List<UnspentCoin>();
@@ -265,7 +265,7 @@ namespace BitRex.Infrastructure.Services
                     .Send(destinationAddress, amt)
                     .SetChange(changeAddress)
                     .SendFees(Money.Satoshis(300))
-                    .AddKeys(privKey)
+                    //.AddKeys(privKey)
                     .BuildTransaction(true);
                 var txHex = txBuilder.ToHex();
                 // Test and see if the transaction would be accepted by the mempool
