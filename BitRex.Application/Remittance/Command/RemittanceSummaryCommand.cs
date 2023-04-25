@@ -59,7 +59,7 @@ namespace BitRex.Application.Remittance.Command
                         //ServiceChargeInDollars = serviceCharge,
                         ProposedAmountInNaira = request.Amount,
                         ProposedAmountInDollar = (request.Amount / dollarNairaRate),
-                        ReturnValue = total,
+                        ReturnValueInSats = (total * 100000000),
                         CurrentBitcoinPriceInDollar = $"$ {price}",
                         CurrentBitcoinPriceInNaira = $"N {price * dollarNairaRate}",
                         Message = "Please note that the amount inputed is less than or equal to the dust value. Hence it would not be processed"

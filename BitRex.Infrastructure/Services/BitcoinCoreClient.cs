@@ -2,20 +2,24 @@
 using BitRex.Application.Common.Model.Response.BitcoinCommandResponses;
 using BitRex.Core.Model;
 using BitRex.Infrastructure.Helper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using NBitcoin;
+using NBitcoin.Altcoins;
 using NBitcoin.Crypto;
 using NBitcoin.RPC;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 
 namespace BitRex.Infrastructure.Services
 {
     public class BitcoinCoreClient : IBitcoinCoreClient
     {
         private readonly IConfiguration _config;
+        private readonly IAppDbContext _context;
         public ApiRequestDto apiRequestDto { get; set; }
         private readonly string serverIp;
         private readonly string username;
@@ -24,9 +28,10 @@ namespace BitRex.Infrastructure.Services
         private readonly ILightningService _lightningService;
         private readonly Network _network;
 
-        public BitcoinCoreClient(IConfiguration config, ILightningService lightningService)
+        public BitcoinCoreClient(IConfiguration config, ILightningService lightningService, IAppDbContext context)
         {
             _config = config;
+            _context = context;
             _lightningService = lightningService;
             apiRequestDto = new ApiRequestDto();
             serverIp = _config["Bitcoin:URL"];
@@ -235,9 +240,9 @@ namespace BitRex.Infrastructure.Services
                 var destinationAddress = BitcoinAddress.Create(address, _network); // recipient address
                 var rpc = await CreateRpcClient();
                 var changeAddress = await rpc.GetRawChangeAddressAsync(); // change address
-                var senderAddress = BitcoinAddress.Create("bcrt1qd3nxk4tjpnzph4hrte660s80asqerhukqsy5gy", _network); // sender address
+                var senderAddress = BitcoinAddress.Create("bcrt1q5gnrglszt7vvw3509tez9tf67k0eakrz4qgwha", _network); // sender address bcrt1q5gnrglszt7vvw3509tez9tf67k0eakrz4qgwha
                 var amt = Money.Satoshis(amount); // the amount you want to send
-                //var privKey = await rpc.DumpPrivKeyAsync(senderAddress); // Private key associated with sender address
+                var privKey = await rpc.DumpPrivKeyAsync(senderAddress); // Private key associated with sender address
                 // Get the unspent outputs for the sender's address
                 var unspentSenderOutputs = rpc.ListUnspent().Where(u => u.Address == senderAddress).ToList();
                 var coins = new List<UnspentCoin>();
@@ -246,7 +251,7 @@ namespace BitRex.Infrastructure.Services
                 var count = 0;
                 foreach (var output in unspentSenderOutputs)
                 {
-                    if (count > 2)
+                    if (count >= 2)
                     {
                         break;
                     }
@@ -265,7 +270,7 @@ namespace BitRex.Infrastructure.Services
                     .Send(destinationAddress, amt)
                     .SetChange(changeAddress)
                     .SendFees(Money.Satoshis(300))
-                    //.AddKeys(privKey)
+                    .AddKeys(privKey)
                     .BuildTransaction(true);
                 var txHex = txBuilder.ToHex();
                 // Test and see if the transaction would be accepted by the mempool
@@ -379,17 +384,10 @@ namespace BitRex.Infrastructure.Services
                 var bitcoinAddress = BitcoinAddress.Create(address, _network);
                 var swapAddress = await rpc.GetRawChangeAddressAsync();
                 var amt = new Money(amount, MoneyUnit.Satoshi);
-
                 // Set a locktime for the refund transaction
                 uint locktime = Utils.DateTimeToUnixTime(DateTime.UtcNow.AddSeconds(validateRequest.expiry));
-
                 //2. Calculate the hash of the secret:
                 byte[] hash = Hashes.RIPEMD160(Encoding.UTF8.GetBytes(validateRequest.hash));
-
-                /*4. Generate a Bitcoin script: Create a script that locks the Bitcoin funds until 
-                the payment hash is revealed.This script will include an HTLC(Hash Time Locked Contract) that ensures that either 
-                the Lightning Network user or the Bitcoin user can claim the funds, but not both.*/
-
                 Script swapScript = new Script(
                     // OP_HASH160 <hash> OP_EQUAL
                     OpcodeType.OP_HASH160,
@@ -407,9 +405,14 @@ namespace BitRex.Infrastructure.Services
                     OpcodeType.OP_CHECKSIG
                 );
 
-                var addrScript = swapScript.Hash.ScriptPubKey;
-                var addr = addrScript.GetDestinationAddress(_network);
-                return (true, addr.ToString());
+                var addrScript = swapScript.WitHash; //.Hash.ScriptPubKey;
+                var scripthash = swapScript.Hash.ScriptPubKey.GetDestinationAddress(_network);
+
+                var scriptAddress = PayToWitScriptHashTemplate
+                    .Instance
+                    .GenerateScriptPubKey(addrScript)
+                    .GetDestinationAddress(_network);
+                return (true, scriptAddress.ToString());
             }
             catch (Exception ex)
             {
@@ -428,34 +431,38 @@ namespace BitRex.Infrastructure.Services
 
                 uint256.TryParse(txid, out uint256 txId);
                 // Wait for the funding transaction to confirm
-                while (true)
-                {
-                    var txInfo = await rpc.GetTxOutAsync(txId, 0);
-                    if (txInfo != null)
-                        if (txInfo.Confirmations > 0)
-                        {
-                            break;
-                        }
-                    await Task.Delay(1000);
-                }
+                var txInfo = await rpc.GetTxOutAsync(txId, 0);
+                if (txInfo != null)
+                    if (txInfo.Confirmations <= 0)
+                    {
+                        return (false, "Transaction has not yet been confirmed");
+                    }
 
+
+                var transaction = await _context.Transactions.FirstOrDefaultAsync(c => c.DestinationAddress == invoice);
+                if (transaction != null)
+                {
+                    transaction.TransactionStatus = Core.Enums.TransactionStatus.Processing;
+                    _context.Transactions.Update(transaction);
+                    await _context.SaveChangesAsync(new CancellationToken());
+                }
                 var validateRequest = await _lightningService.ValidateLightningAddress(invoice);
                 var payinvoice = await _lightningService.SendLightning(invoice);
 
 
                 // Get the transaction output of the swap transaction
-                var fundingTx = await rpc.GetRawTransactionAsync(txId);
+                /*var fundingTx = await rpc.GetRawTransactionAsync(txId);
                 var outputIndex = 0; // change to the index of the swap output in the transaction
                 var fundingOutput = fundingTx.Outputs[outputIndex];
 
                 // Get the script from the funding transaction output
                 var script = fundingOutput.ScriptPubKey;
-                NBitcoin.Op[] opss = (NBitcoin.Op[])script.ToOps();
+                var opss = script.ToOps().ToList();
 
                 PubKey refundPubKey = null;
                 Script redeemScript = null;
                 bool isRedeemScript = false;
-                for (int i = 0; i < opss.Length; i++)
+                for (int i = 0; i < opss.Count(); i++)
                 {
                     if (opss[i].Code == OpcodeType.OP_DROP)
                     {
@@ -482,7 +489,6 @@ namespace BitRex.Infrastructure.Services
                         redeemScript += op;
                     }
                 }
-
                 // Create the transaction to redeem the swap output and spend the funds
                 var redeemTx = _network.CreateTransaction();
                 redeemTx.Inputs.Add(new TxIn(new OutPoint(txId, outputIndex), script));
@@ -493,8 +499,8 @@ namespace BitRex.Infrastructure.Services
                 // Sign the transaction with the private key
                 redeemTx.Inputs[0].ScriptSig = script;
                 // Broadcast the transaction
-                var result = await rpc.SendRawTransactionAsync(redeemTx);
-                Console.WriteLine("Transaction sent: " + result);
+                var result = await rpc.SendRawTransactionAsync(redeemTx);*/
+                //Console.WriteLine("Transaction sent: " + result);
                 return (true, "Submarine swap completed");
             }
             catch (Exception ex)

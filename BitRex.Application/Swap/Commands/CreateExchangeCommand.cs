@@ -93,7 +93,8 @@ namespace BitRex.Application.Swap.Commands
                                 decimal.TryParse(_config["MinerFee:LnBtcToBtc"], out minerFee);
                                 serviceChargeValue = request.AmountInBtc * (serviceCharge / 100);
                                 total = request.AmountInBtc - (serviceChargeValue + minerFee);
-                                if ((total * 100000000) <= dustValue)
+                                var lnval = total * 100000000;
+                                if (lnval <= dustValue)
                                 {
                                     response.StatusCode = (int)HttpStatusCode.BadRequest;
                                     response.Message = "Monetary value cannot be less than the dust value";
@@ -108,7 +109,7 @@ namespace BitRex.Application.Swap.Commands
                                 transactionRecord.SourceAddress = generateInvloice;
                                 transactionRecord.DestinationPaymentModeType = PaymentModeType.Bitcoin;
                                 transactionRecord.SourcePaymentModeType = PaymentModeType.Lightning;
-                                transactionRecord.DestinationAmount = (total * 100000000);
+                                transactionRecord.DestinationAmount = lnval;
                                 transactionRecord.TransactionStatus = TransactionStatus.Initiated;
                                 var transaction = await new TransactionHelper(_context).CreateTransaction(transactionRecord);
                                 response.Succeeded = true;

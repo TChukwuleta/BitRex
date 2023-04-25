@@ -55,6 +55,18 @@ namespace BitRex.Api.Controllers
                 return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
             }
         }
+
+        [HttpPost("confirmlightningpaymentandperformswap")]
+        public async Task<ActionResult<Result>> ConfirmLightningPayment(ListenForLightningSwapPaymentCommand command)
+        {
+            try
+            {
+                return await _mediator.Send(command);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
+            }
+        }
     }
 }
-

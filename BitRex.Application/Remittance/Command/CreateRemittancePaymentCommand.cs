@@ -137,7 +137,6 @@ namespace BitRex.Application.Remittance.Command
                         response.Message = "Invalid exchange type";
                         return response;
                 }
-                transactionRecord.DestinationAmount = total;
                 var transaction = await new TransactionHelper(_context).CreateTransaction(transactionRecord);
                 var paystackRequest = new PaystackPaymentRequest
                 {

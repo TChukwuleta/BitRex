@@ -33,14 +33,14 @@ namespace BitRex.Application.Swap.Commands
                         var makeBitcoinPayment = await _bitcoinCoreClient.PayBitcoin(transaction.DestinationAddress, transaction.DestinationAmount);
                         break;
                     case Core.Enums.PaymentModeType.Lightning:
-                        var makeLightningPayment = await _lightningService.SendLightning(transaction.DestinationAddress);
+                        return Result.Failure("Cannot process payment of the same type");
                         break;
                     case Core.Enums.PaymentModeType.Fiat:
                         return Result.Failure("Cannot process fiat");
                     default:
                         return Result.Failure("Invalid payment mode type");
                 }
-                return Result.Success("Done performing the call");
+                return Result.Success("Done performing the swap");
             }
             catch (Exception ex)
             {
