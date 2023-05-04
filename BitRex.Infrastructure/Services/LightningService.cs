@@ -197,12 +197,12 @@ namespace BitRex.Infrastructure.Services
                 var response = userClient.SendPaymentSync(sendRequest, new Metadata() { new Metadata.Entry("macaroon", helper.GetAdminMacaroon()) });
                 result = response.PaymentError;
                 var hash = response.PaymentHash.ToStringUtf8();
-                var yo = response.PaymentPreimage.ToByteArray();
+                var paymentPreImage = response.PaymentPreimage.ToByteArray();
                 if (!string.IsNullOrEmpty(response.PaymentError))
                 {
                     return (false, response.PaymentError, string.Empty, null);
                 }
-                return (true, string.Empty, hash, yo);
+                return (true, string.Empty, hash, paymentPreImage);
             }
             catch (Exception ex)
             {

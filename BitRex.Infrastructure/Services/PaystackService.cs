@@ -54,10 +54,14 @@ namespace BitRex.Infrastructure.Services
             try
             {
                 TransactionVerifyResponse response = payStack.Transactions.Verify(reference);
-                if (response.Data.Status == "success")
+                if (response.Data != null)
                 {
-                    return true;
+                    if (response.Data.Status == "success")
+                    {
+                        return true;
+                    }
                 }
+                
                 return false;
             }
             catch (Exception ex)

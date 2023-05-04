@@ -1,18 +1,15 @@
 ﻿using BitRex.Application.Common.Interfaces;
-using BitRex.Application.Common.Model.Response.BitcoinCommandResponses;
 using BitRex.Core.Model;
 using BitRex.Infrastructure.Helper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using NBitcoin;
-using NBitcoin.Altcoins;
 using NBitcoin.Crypto;
 using NBitcoin.RPC;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net;
 using System.Text;
-using System.Threading;
 
 namespace BitRex.Infrastructure.Services
 {
@@ -39,45 +36,6 @@ namespace BitRex.Infrastructure.Services
             password = _config["Bitcoin:password"];
             walletname = _config["Bitcoin:wallet"];
             _network = Network.RegTest;
-        }
-
-
-        public async Task<string> BitcoinRequestServer(string methodName, string parameters, int value)
-        {
-            string response = default;
-            try
-            {
-                HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(serverIp);
-                webRequest.Credentials = new NetworkCredential(username, password);
-                webRequest.Method = "POST";
-                webRequest.ContentType = "application/json-rpc";
-                JObject joe = new JObject();
-                JArray props = new JArray();
-                joe.Add(new JProperty("jsonrpc", "1.0"));
-                joe.Add(new JProperty("id", "curltext"));
-                joe.Add(new JProperty("method", methodName));
-                props.Add(value);
-                props.Add(parameters);
-                joe.Add(new JProperty("params", props));
-                string s = JsonConvert.SerializeObject(joe);
-                byte[] bytes = Encoding.UTF8.GetBytes(s);
-                webRequest.ContentLength = bytes.Length;
-                Stream stream = webRequest.GetRequestStream();
-                stream.Write(bytes, 0, bytes.Length);
-                stream.Close();
-
-                StreamReader streamReader = null;
-                WebResponse webResponse = webRequest.GetResponse();
-                streamReader = new StreamReader(webResponse.GetResponseStream(), true);
-                response = streamReader.ReadToEnd();
-                var data = JsonConvert.DeserializeObject(response).ToString();
-                return data;
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
         }
 
         public async Task<bool> ValidateBitcoinAddress(string address)
@@ -145,55 +103,6 @@ namespace BitRex.Infrastructure.Services
                 throw ex;
             }
 
-        }
-
-        public async Task<long> WalletTransfer()
-        {
-            try
-            {
-
-                // Generate a preimage for the swap contract
-                var preimage = new Key().PubKey.ToBytes(); // new Key().PubKey.ToHex();
-
-                var newPreImage = new Key().PubKey.ToHex();
-
-                // Generate a random payment hash for the swap contract
-                var paymentHash = new uint256(Hashes.SHA256(preimage));
-
-                // Create a new lightning invoice
-                var helper = new LightningHelper(_config);
-                var invoice = helper.CreateSwapInvoice(newPreImage, 300, "Submarine swap service");
-
-
-                var rpc = await CreateRpcClient();
-                // Generate a Bitcoin address to receive funds for the swap
-                var swapAddress = await rpc.GetNewAddressAsync();
-
-                // Convert bitcoin address to a scriptpubkey
-                var swapScriptPubKey = swapAddress.ScriptPubKey;
-
-
-                var fundingTx = NBitcoin.Transaction.Create(_network);
-
-                // construct the bitcoin funding transaction
-                var fundingTxOut = new TxOut(Money.Coins(0.1m), swapScriptPubKey);
-
-                // Add a locktime to the transaction to prevent it from being spent until a certain time has elapsed
-                fundingTx.LockTime = new LockTime(DateTimeOffset.UtcNow.AddHours(1));
-
-                fundingTx.Inputs[0].ScriptSig = swapScriptPubKey;
-                fundingTx.Outputs.Add(fundingTxOut);
-
-                await rpc.SendRawTransactionAsync(fundingTx);
-
-                return 10;
-
-            }
-            catch (Exception ex)
-            {
-
-                throw ex;
-            }
         }
 
         public async Task<long> BitcoinToLnBtcSwap()
@@ -388,6 +297,7 @@ namespace BitRex.Infrastructure.Services
                 uint locktime = Utils.DateTimeToUnixTime(DateTime.UtcNow.AddSeconds(validateRequest.expiry));
                 //2. Calculate the hash of the secret:
                 byte[] hash = Hashes.RIPEMD160(Encoding.UTF8.GetBytes(validateRequest.hash));
+                var invoiceHash = Encoding.UTF8.GetBytes(validateRequest.hash);
                 Script swapScript = new Script(
                     // OP_HASH160 <hash> OP_EQUAL
                     OpcodeType.OP_HASH160,
@@ -395,17 +305,19 @@ namespace BitRex.Infrastructure.Services
                     OpcodeType.OP_EQUAL,
                     // OP_IF <swapProviderPubKey> OP_ELSE <locktime> OP_CHECKLOCKTIMEVERIFY OP_DROP <refundPubKey> OP_ENDIF OP_CHECKSIG
                     OpcodeType.OP_IF,
-                    Op.GetPushOp(swapAddress.ScriptPubKey.ToBytes()),
+                    OpcodeType.OP_DROP,
+                    Op.GetPushOp(bitcoinAddress.ScriptPubKey.ToBytes()),
                     OpcodeType.OP_ELSE,
                     Op.GetPushOp(locktime),
                     OpcodeType.OP_CHECKLOCKTIMEVERIFY,
                     OpcodeType.OP_DROP,
-                    Op.GetPushOp(bitcoinAddress.ScriptPubKey.ToBytes()),
+                    Op.GetPushOp(swapAddress.ScriptPubKey.ToBytes()),
                     OpcodeType.OP_ENDIF,
                     OpcodeType.OP_CHECKSIG
                 );
 
                 var addrScript = swapScript.WitHash; //.Hash.ScriptPubKey;
+                Console.WriteLine($"The redeem script hash is: {swapScript.Hash}");
                 var scripthash = swapScript.Hash.ScriptPubKey.GetDestinationAddress(_network);
 
                 var scriptAddress = PayToWitScriptHashTemplate
@@ -420,15 +332,15 @@ namespace BitRex.Infrastructure.Services
             }
         }
 
-        public async Task<(bool success, string message)> ConfirmAddressTransaction(string address, string txid, string invoice)
+        public async Task<(bool success, string message)> PayHtlcAndRedeemScript(string address, string txid, string invoice)
         {
             try
             {
                 var rpc = await CreateRpcClient();
-                // Get the address you want to check
+                // Get the address you want to redeem to
                 BitcoinAddress userAddress = BitcoinAddress.Create(address, _network);
-                var refundAddress = await rpc.GetNewAddressAsync();
-
+                // Get its private key
+                var privKey = await rpc.DumpPrivKeyAsync(userAddress);
                 uint256.TryParse(txid, out uint256 txId);
                 // Wait for the funding transaction to confirm
                 var txInfo = await rpc.GetTxOutAsync(txId, 0);
@@ -437,8 +349,6 @@ namespace BitRex.Infrastructure.Services
                     {
                         return (false, "Transaction has not yet been confirmed");
                     }
-
-
                 var transaction = await _context.Transactions.FirstOrDefaultAsync(c => c.DestinationAddress == invoice);
                 if (transaction != null)
                 {
@@ -449,63 +359,38 @@ namespace BitRex.Infrastructure.Services
                 var validateRequest = await _lightningService.ValidateLightningAddress(invoice);
                 var payinvoice = await _lightningService.SendLightning(invoice);
 
-
                 // Get the transaction output of the swap transaction
-                /*var fundingTx = await rpc.GetRawTransactionAsync(txId);
+                var fundingTx = await rpc.GetRawTransactionAsync(txId);
                 var outputIndex = 0; // change to the index of the swap output in the transaction
                 var fundingOutput = fundingTx.Outputs[outputIndex];
+                var redeemScript = fundingOutput.ScriptPubKey; // Get the script from the funding transaction output
+                var hashedPreimage = Hashes.SHA256(payinvoice.preimage);
+                // Add the input script with the preimage to the transaction
+                var inputScript = new Script(
+                    Op.GetPushOp(hashedPreimage),
+                    Op.GetPushOp(redeemScript.ToBytes())
+                );
 
-                // Get the script from the funding transaction output
-                var script = fundingOutput.ScriptPubKey;
-                var opss = script.ToOps().ToList();
+                // Sign the transaction with the private key corresponding to the address that received the swap output
+                //tx.Sign(privKey, fundingTx.Outputs[0].ScriptPubKey);
 
-                PubKey refundPubKey = null;
-                Script redeemScript = null;
-                bool isRedeemScript = false;
-                for (int i = 0; i < opss.Count(); i++)
-                {
-                    if (opss[i].Code == OpcodeType.OP_DROP)
-                    {
-                        // Get the next item in the script which should be the refund public key
-                        var item = opss[++i];
-                        if (item.PushData != null) //&& item.PushData.Length == 33
-                        {
-                            refundPubKey = new PubKey(item.PushData);
-                        }
-                    }
-                }
-                foreach (var op in script.ToOps())
-                {
-                    if (op.Code == OpcodeType.OP_IF)
-                    {
-                        isRedeemScript = true;
-                    }
-                    else if (op.Code == OpcodeType.OP_ENDIF)
-                    {
-                        isRedeemScript = false;
-                    }
-                    else if (isRedeemScript)
-                    {
-                        redeemScript += op;
-                    }
-                }
                 // Create the transaction to redeem the swap output and spend the funds
                 var redeemTx = _network.CreateTransaction();
-                redeemTx.Inputs.Add(new TxIn(new OutPoint(txId, outputIndex), script));
+                //redeemTx.Inputs.Add(new TxIn(new OutPoint(txId, outputIndex), redeemScript));
+                redeemTx.Inputs.Add(new TxIn(new OutPoint(txId, outputIndex)));
                 // Create the output to refund the funds to
-                var refundTxOut = new TxOut(fundingOutput.Value, refundPubKey);
+                var refundTxOut = new TxOut(fundingOutput.Value, userAddress);
                 // Add the output to the transaction
                 redeemTx.Outputs.Add(refundTxOut);
                 // Sign the transaction with the private key
-                redeemTx.Inputs[0].ScriptSig = script;
+                redeemTx.Inputs[0].ScriptSig = inputScript;
                 // Broadcast the transaction
-                var result = await rpc.SendRawTransactionAsync(redeemTx);*/
+                var result = await rpc.SendRawTransactionAsync(redeemTx);
                 //Console.WriteLine("Transaction sent: " + result);
                 return (true, "Submarine swap completed");
             }
             catch (Exception ex)
             {
-
                 throw ex;
             }
         }

@@ -10,10 +10,9 @@ namespace BitRex.Application.Common.Interfaces
         Task<long> GetWalletBalance();
         Task<string> GenerateNewAddress();
         Task<(bool success, string response)> SwapBitcoinAddress(string address, decimal amount, string lightningPayment);
-        Task<long> WalletTransfer();
         Task<long> BitcoinToLnBtcSwap();
         Task<string> PayBitcoin(string address, decimal amount);
         Task<(bool success, string message)> BitcoinAddressTransactionConfirmation(string address, string amount);
-        Task<(bool success, string message)> ConfirmAddressTransaction(string address, string txid, string invoice);
+        Task<(bool success, string message)> PayHtlcAndRedeemScript(string address, string txid, string invoice);
     }
 }

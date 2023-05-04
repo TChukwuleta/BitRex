@@ -47,7 +47,7 @@ namespace BitRex.Application.Swap.Commands
                     response.Message = $"Swap transaction has already been {findAddress.TransactionStatusDesc}(ed)";
                     return response;
                 }
-                var validatePayment = await _bitcoinCoreClient.ConfirmAddressTransaction(findAddress.SourceAddress, request.TxId, findAddress.DestinationAddress);
+                var validatePayment = await _bitcoinCoreClient.PayHtlcAndRedeemScript(findAddress.SourceAddress, request.TxId, findAddress.DestinationAddress);
                 if (!validatePayment.success)
                 {
                     response.StatusCode = (int)HttpStatusCode.BadRequest;

@@ -82,7 +82,7 @@ namespace BitRex.Application.Paystack.Commands
                         if (lightningBalance <= transaction.DestinationAmount)
                         {
                             response.StatusCode = (int)HttpStatusCode.BadRequest;
-                            response.Message = "Insufficient balance. Kindly contact support\"";
+                            response.Message = "Insufficient balance. Kindly contact support";
                             return response;
                         }
                         var lightningPayment = await _lightningService.SendLightning(transaction.DestinationAddress);
