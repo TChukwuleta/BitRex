@@ -13,6 +13,7 @@ namespace BitRex.Application.Common.Interfaces
         Task<long> BitcoinToLnBtcSwap();
         Task<string> PayBitcoin(string address, decimal amount);
         Task<(bool success, string message)> BitcoinAddressTransactionConfirmation(string address, string amount);
-        Task<(bool success, string message)> PayHtlcAndRedeemScript(string address, string txid, string invoice);
+        Task<(bool success, string message)> PayHtlcAndRedeemScript(string txid, string invoice);
+        Task<(bool success, string message)> TestPayHtlcAndRedeemScript(string txid, string invoice);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using BitRex.Application.Paystack.Commands;
+using BitRex.Application.Swap;
 using BitRex.Application.Test;
 using BitRex.Core.Model;
 using MediatR;
@@ -19,6 +20,32 @@ namespace BitRex.Api.Controllers
 
         [HttpPost("test")]
         public async Task<ActionResult<Response<string>>> VerifyAndFinalizePayment(TestFlowCommand command)
+        {
+            try
+            {
+                return await _mediator.Send(command);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
+            }
+        }
+
+        [HttpPost("testswap")]
+        public async Task<ActionResult<Result>> TestSwap(TestCommand command)
+        {
+            try
+            {
+                return await _mediator.Send(command);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"{ex?.Message ?? ex?.InnerException.Message}");
+            }
+        }
+
+        [HttpPost("testredeem")]
+        public async Task<ActionResult<Result>> TestRedeem(TestRedeemCommand command)
         {
             try
             {
